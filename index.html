@@ -9,8 +9,21 @@
     h1, h2 { color: #1e293b; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
     .form-group { margin-bottom: 20px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; color: #475569; }
-    input[type="text"], input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
-    textarea { height: 120px; resize: vertical; }
+    input[type="text"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
+    
+    /* 텍스트 영역 자동 확장 CSS 추가 */
+    textarea { 
+      width: 100%; 
+      min-height: 120px; 
+      padding: 10px; 
+      border: 1px solid var(--border); 
+      border-radius: 4px; 
+      box-sizing: border-box; 
+      overflow-y: hidden; /* 스크롤바 숨김 */
+      resize: none; /* 사용자 임의 조절 방지 */
+      line-height: 1.5;
+    }
+    
     button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
     button:hover { background: #1d4ed8; }
     img { max-width: 100%; border: 1px solid var(--border); margin-top: 10px; display: none; }
@@ -18,7 +31,6 @@
     .tab-btn.active { background: var(--primary); color: white; }
     .hidden { display: none !important; }
     
-    /* 교사용 테이블 스타일 */
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }
     th { background: #f1f5f9; }
@@ -30,12 +42,10 @@
       .card { box-shadow: none; padding: 0; }
     }
   </style>
-  <!-- 교사 계정 안내 (요청에 의한 주석 표시) -->
   <!-- 교사 로그인 ID: seilST / PW: seil319015 -->
 </head>
 <body>
 
-  <!-- 초기 화면: 역할 선택 및 로그인 -->
   <div id="loginSection" class="card">
     <div style="margin-bottom: 20px;">
       <button class="tab-btn active" id="tabStudent" onclick="switchTab('student')">학생 로그인</button>
@@ -57,12 +67,13 @@
     </div>
   </div>
 
-  <!-- 보고서 작성 화면 (학생 & 교사 열람용 공통) -->
   <div id="reportSection" class="card hidden">
     <div class="no-print" style="display:flex; justify-content:space-between; align-items:center;">
       <h1 id="reportTitle">탐구활동 보고서</h1>
-      <button id="printBtn" class="hidden" onclick="window.print()" style="background:#10b981;">출력하기</button>
-      <button id="backToListBtn" class="hidden" onclick="showTeacherDashboard()">목록으로</button>
+      <div>
+        <button id="printBtn" class="hidden" onclick="window.print()" style="background:#10b981;">출력하기</button>
+        <button id="backToListBtn" class="hidden" onclick="showTeacherDashboard()">목록으로</button>
+      </div>
     </div>
     
     <p><strong>학번:</strong> <span id="display_sid"></span> / <strong>이름:</strong> <span id="display_sname"></span></p>
@@ -98,7 +109,6 @@
     <button id="submitBtn" class="student-only" onclick="submitReport()" style="width:100%; padding:15px;">보고서 제출 (임시저장 포함)</button>
   </div>
 
-  <!-- 교사 대시보드 화면 -->
   <div id="teacherDashboard" class="card hidden">
     <h2>제출된 보고서 목록</h2>
     <input type="text" id="searchInput" class="search-box no-print" placeholder="학번 또는 이름으로 검색..." onkeyup="filterTable()">
@@ -112,12 +122,27 @@
   </div>
 
   <script>
-    // 전역 변수
     let currentUser = {};
     let isTeacherMode = false;
-    let studentListData = [];
 
-    // Base64 이미지 리사이징 (스프레드시트 용량 한계 방지)
+    // 높이 자동 조절 함수 추가
+    function autoResizeTextarea() {
+      this.style.height = 'auto';
+      this.style.height = (this.scrollHeight) + 'px';
+    }
+
+    // 모든 텍스트 영역에 높이 조절 이벤트 연결
+    document.querySelectorAll('textarea').forEach(el => {
+      el.addEventListener('input', autoResizeTextarea);
+    });
+
+    function triggerResize() {
+      document.querySelectorAll('textarea').forEach(el => {
+        el.style.height = 'auto';
+        el.style.height = (el.scrollHeight) + 'px';
+      });
+    }
+
     function compressImage(file, callback) {
       const reader = new FileReader();
       reader.onload = function(event) {
@@ -130,20 +155,20 @@
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-          callback(canvas.toDataURL('image/jpeg', 0.7)); // 70% 퀄리티 압축
+          callback(canvas.toDataURL('image/jpeg', 0.7)); 
         }
         img.src = event.target.result;
       }
       reader.readAsDataURL(file);
     }
 
-    // 이미지 파일 인풋 이벤트 연결
     document.getElementById('q1_file').addEventListener('change', function(e) {
       compressImage(e.target.files[0], (base64) => {
         document.getElementById('q1_preview').src = base64;
         document.getElementById('q1_preview').style.display = 'block';
       });
     });
+    
     document.getElementById('q3_file').addEventListener('change', function(e) {
       compressImage(e.target.files[0], (base64) => {
         document.getElementById('q3_preview').src = base64;
@@ -151,7 +176,6 @@
       });
     });
 
-    // 탭 전환
     function switchTab(type) {
       if(type === 'student') {
         document.getElementById('tabStudent').classList.add('active');
@@ -166,7 +190,6 @@
       }
     }
 
-    // 학생 로그인 (데이터 불러오기)
     function loginStudent() {
       const sid = document.getElementById('s_id').value;
       const sname = document.getElementById('s_name').value;
@@ -185,7 +208,6 @@
       document.querySelectorAll('textarea').forEach(el => el.readOnly = false);
     }
 
-    // 화면 폼 채우기
     function populateReport(data) {
       if(data) {
         if(data.q1Img) { document.getElementById('q1_preview').src = data.q1Img; document.getElementById('q1_preview').style.display = 'block'; }
@@ -194,10 +216,12 @@
         document.getElementById('q2_text').value = data.q2Text || '';
         document.getElementById('q3_text').value = data.q3Text || '';
         document.getElementById('q4_text').value = data.q4Text || '';
+        
+        // 기존 데이터를 불러온 후 칸 높이를 즉시 자동 조절
+        setTimeout(triggerResize, 100);
       }
     }
 
-    // 학생 보고서 제출
     function submitReport() {
       const data = {
         studentId: currentUser.studentId,
@@ -217,7 +241,6 @@
       }).saveReport(data);
     }
 
-    // 교사 로그인
     function loginTeacher() {
       const id = document.getElementById('t_id').value;
       const pw = document.getElementById('t_pw').value;
@@ -232,16 +255,13 @@
       }).verifyTeacher(id, pw);
     }
 
-    // 교사 대시보드 띄우기
     function showTeacherDashboard() {
       document.getElementById('reportSection').classList.add('hidden');
       document.getElementById('teacherDashboard').classList.remove('hidden');
       google.script.run.withSuccessHandler(renderStudentList).getStudentList();
     }
 
-    // 리스트 렌더링
     function renderStudentList(list) {
-      studentListData = list;
       const tbody = document.getElementById('studentTableBody');
       tbody.innerHTML = '';
       list.forEach(student => {
@@ -257,7 +277,6 @@
       });
     }
 
-    // 테이블 검색(필터)
     function filterTable() {
       const filter = document.getElementById('searchInput').value.toUpperCase();
       const trs = document.getElementById('studentTableBody').getElementsByTagName('tr');
@@ -276,7 +295,6 @@
       }
     }
 
-    // 교사 - 특정 학생 보고서 열람 (수정 불가)
     function viewStudentReport(sid, sname) {
       document.getElementById('teacherDashboard').classList.add('hidden');
       document.getElementById('reportSection').classList.remove('hidden');
@@ -284,13 +302,11 @@
       document.getElementById('display_sid').innerText = sid;
       document.getElementById('display_sname').innerText = sname;
       
-      // 교사 전용 UI 세팅
       document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
       document.getElementById('printBtn').classList.remove('hidden');
       document.getElementById('backToListBtn').classList.remove('hidden');
       document.querySelectorAll('textarea').forEach(el => el.readOnly = true);
 
-      // 데이터 초기화 후 불러오기
       document.getElementById('q1_preview').style.display = 'none';
       document.getElementById('q3_preview').style.display = 'none';
       document.getElementById('q1_text').value = '';
