@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    :root { --primary: #2563eb; --bg: #f8fafc; --text: #334155; --border: #cbd5e1; }
+    body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; max-width: 800px; margin: 0 auto; }
+    .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h1, h2 { color: #1e293b; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; color: #475569; }
+    input[type="text"], input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
+    textarea { height: 120px; resize: vertical; }
+    button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
+    button:hover { background: #1d4ed8; }
+    img { max-width: 100%; border: 1px solid var(--border); margin-top: 10px; display: none; }
+    .tab-btn { background: #e2e8f0; color: #475569; margin-right: 5px; }
+    .tab-btn.active { background: var(--primary); color: white; }
+    .hidden { display: none !important; }
+    
+    /* 교사용 테이블 스타일 */
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { background: #f1f5f9; }
+    .search-box { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 4px; }
+    
+    @media print {
+      body { background: white; padding: 0; }
+      .no-print { display: none !important; }
+      .card { box-shadow: none; padding: 0; }
+    }
+  </style>
+  <!-- 교사 계정 안내 (요청에 의한 주석 표시) -->
+  <!-- 교사 로그인 ID: seilST / PW: seil319015 -->
+</head>
+<body>
+
+  <!-- 초기 화면: 역할 선택 및 로그인 -->
+  <div id="loginSection" class="card">
+    <div style="margin-bottom: 20px;">
+      <button class="tab-btn active" id="tabStudent" onclick="switchTab('student')">학생 로그인</button>
+      <button class="tab-btn" id="tabTeacher" onclick="switchTab('teacher')">교사 로그인</button>
+    </div>
+
+    <div id="studentLogin">
+      <h2>학생 보고서 접속</h2>
+      <div class="form-group"><label>학번</label><input type="text" id="s_id" placeholder="예: 30101"></div>
+      <div class="form-group"><label>이름</label><input type="text" id="s_name" placeholder="예: 홍길동"></div>
+      <button onclick="loginStudent()">보고서 작성하기</button>
+    </div>
+
+    <div id="teacherLogin" class="hidden">
+      <h2>교사 접속</h2>
+      <div class="form-group"><label>아이디</label><input type="text" id="t_id"></div>
+      <div class="form-group"><label>비밀번호</label><input type="password" id="t_pw"></div>
+      <button onclick="loginTeacher()">목록 보기</button>
+    </div>
+  </div>
+
+  <!-- 보고서 작성 화면 (학생 & 교사 열람용 공통) -->
+  <div id="reportSection" class="card hidden">
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1 id="reportTitle">탐구활동 보고서</h1>
+      <button id="printBtn" class="hidden" onclick="window.print()" style="background:#10b981;">출력하기</button>
+      <button id="backToListBtn" class="hidden" onclick="showTeacherDashboard()">목록으로</button>
+    </div>
+    
+    <p><strong>학번:</strong> <span id="display_sid"></span> / <strong>이름:</strong> <span id="display_sname"></span></p>
+    
+    <div class="form-group">
+      <label>1. 놀이기구 설계 및 과학적 개념 적용</label>
+      <p style="font-size:0.9em; color:#64748b;">놀이기구 사진(가속도 센서 부착 위치 포함)을 첨부하고, 설계 시 적용한 과학적 원리(중력, 관성 등)와 의도를 작성하세요.</p>
+      <input type="file" id="q1_file" accept="image/*" class="student-only">
+      <img id="q1_preview">
+      <textarea id="q1_text"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>2. 디지털 도구 활용 및 가속도 데이터 수집</label>
+      <p style="font-size:0.9em; color:#64748b;">아두이노와 가속도 센서를 활용한 데이터 수집 과정 및 디지털 도구 조작 과정을 설명하세요.</p>
+      <textarea id="q2_text"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>3. 구간별 그래프 분석 및 과학적 원리 해석</label>
+      <p style="font-size:0.9em; color:#64748b;">측정한 가속도 그래프 이미지를 첨부하고, 구간별 가속도 변화와 작용한 과학적 원리를 분석하세요.</p>
+      <input type="file" id="q3_file" accept="image/*" class="student-only">
+      <img id="q3_preview">
+      <textarea id="q3_text"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>4. 실험 결과 연계 및 오차 원인 분석</label>
+      <p style="font-size:0.9em; color:#64748b;">초기 설계 의도와 실제 측정 결과의 연관성, 그리고 이상적 데이터와의 오차 원인(마찰력 등)을 서술하세요.</p>
+      <textarea id="q4_text"></textarea>
+    </div>
+
+    <button id="submitBtn" class="student-only" onclick="submitReport()" style="width:100%; padding:15px;">보고서 제출 (임시저장 포함)</button>
+  </div>
+
+  <!-- 교사 대시보드 화면 -->
+  <div id="teacherDashboard" class="card hidden">
+    <h2>제출된 보고서 목록</h2>
+    <input type="text" id="searchInput" class="search-box no-print" placeholder="학번 또는 이름으로 검색..." onkeyup="filterTable()">
+    
+    <table id="studentTable">
+      <thead>
+        <tr><th>학번</th><th>이름</th><th>제출일시</th><th>확인</th></tr>
+      </thead>
+      <tbody id="studentTableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // 전역 변수
+    let currentUser = {};
+    let isTeacherMode = false;
+    let studentListData = [];
+
+    // Base64 이미지 리사이징 (스프레드시트 용량 한계 방지)
+    function compressImage(file, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 600;
+          let width = img.width; let height = img.height;
+          if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          callback(canvas.toDataURL('image/jpeg', 0.7)); // 70% 퀄리티 압축
+        }
+        img.src = event.target.result;
+      }
+      reader.readAsDataURL(file);
+    }
+
+    // 이미지 파일 인풋 이벤트 연결
+    document.getElementById('q1_file').addEventListener('change', function(e) {
+      compressImage(e.target.files[0], (base64) => {
+        document.getElementById('q1_preview').src = base64;
+        document.getElementById('q1_preview').style.display = 'block';
+      });
+    });
+    document.getElementById('q3_file').addEventListener('change', function(e) {
+      compressImage(e.target.files[0], (base64) => {
+        document.getElementById('q3_preview').src = base64;
+        document.getElementById('q3_preview').style.display = 'block';
+      });
+    });
+
+    // 탭 전환
+    function switchTab(type) {
+      if(type === 'student') {
+        document.getElementById('tabStudent').classList.add('active');
+        document.getElementById('tabTeacher').classList.remove('active');
+        document.getElementById('studentLogin').classList.remove('hidden');
+        document.getElementById('teacherLogin').classList.add('hidden');
+      } else {
+        document.getElementById('tabTeacher').classList.add('active');
+        document.getElementById('tabStudent').classList.remove('active');
+        document.getElementById('teacherLogin').classList.remove('hidden');
+        document.getElementById('studentLogin').classList.add('hidden');
+      }
+    }
+
+    // 학생 로그인 (데이터 불러오기)
+    function loginStudent() {
+      const sid = document.getElementById('s_id').value;
+      const sname = document.getElementById('s_name').value;
+      if(!sid || !sname) return alert("학번과 이름을 모두 입력하세요.");
+      
+      currentUser = { studentId: sid, name: sname };
+      document.getElementById('display_sid').innerText = sid;
+      document.getElementById('display_sname').innerText = sname;
+      
+      google.script.run.withSuccessHandler(populateReport).getStudentData(sid, sname);
+      
+      isTeacherMode = false;
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('reportSection').classList.remove('hidden');
+      document.querySelectorAll('.student-only').forEach(el => el.classList.remove('hidden'));
+      document.querySelectorAll('textarea').forEach(el => el.readOnly = false);
+    }
+
+    // 화면 폼 채우기
+    function populateReport(data) {
+      if(data) {
+        if(data.q1Img) { document.getElementById('q1_preview').src = data.q1Img; document.getElementById('q1_preview').style.display = 'block'; }
+        if(data.q3Img) { document.getElementById('q3_preview').src = data.q3Img; document.getElementById('q3_preview').style.display = 'block'; }
+        document.getElementById('q1_text').value = data.q1Text || '';
+        document.getElementById('q2_text').value = data.q2Text || '';
+        document.getElementById('q3_text').value = data.q3Text || '';
+        document.getElementById('q4_text').value = data.q4Text || '';
+      }
+    }
+
+    // 학생 보고서 제출
+    function submitReport() {
+      const data = {
+        studentId: currentUser.studentId,
+        name: currentUser.name,
+        q1Img: document.getElementById('q1_preview').src || '',
+        q1Text: document.getElementById('q1_text').value,
+        q2Text: document.getElementById('q2_text').value,
+        q3Img: document.getElementById('q3_preview').src || '',
+        q3Text: document.getElementById('q3_text').value,
+        q4Text: document.getElementById('q4_text').value
+      };
+      
+      document.getElementById('submitBtn').innerText = "저장 중...";
+      google.script.run.withSuccessHandler(res => {
+        alert(res);
+        document.getElementById('submitBtn').innerText = "보고서 제출 (임시저장 포함)";
+      }).saveReport(data);
+    }
+
+    // 교사 로그인
+    function loginTeacher() {
+      const id = document.getElementById('t_id').value;
+      const pw = document.getElementById('t_pw').value;
+      google.script.run.withSuccessHandler(isValid => {
+        if(isValid) {
+          isTeacherMode = true;
+          document.getElementById('loginSection').classList.add('hidden');
+          showTeacherDashboard();
+        } else {
+          alert("아이디 또는 비밀번호가 틀렸습니다.");
+        }
+      }).verifyTeacher(id, pw);
+    }
+
+    // 교사 대시보드 띄우기
+    function showTeacherDashboard() {
+      document.getElementById('reportSection').classList.add('hidden');
+      document.getElementById('teacherDashboard').classList.remove('hidden');
+      google.script.run.withSuccessHandler(renderStudentList).getStudentList();
+    }
+
+    // 리스트 렌더링
+    function renderStudentList(list) {
+      studentListData = list;
+      const tbody = document.getElementById('studentTableBody');
+      tbody.innerHTML = '';
+      list.forEach(student => {
+        const date = new Date(student.time).toLocaleString();
+        tbody.innerHTML += `
+          <tr>
+            <td>${student.studentId}</td>
+            <td>${student.name}</td>
+            <td>${date}</td>
+            <td><button onclick="viewStudentReport('${student.studentId}', '${student.name}')" style="padding: 5px 10px; font-size: 13px;">선택하기</button></td>
+          </tr>
+        `;
+      });
+    }
+
+    // 테이블 검색(필터)
+    function filterTable() {
+      const filter = document.getElementById('searchInput').value.toUpperCase();
+      const trs = document.getElementById('studentTableBody').getElementsByTagName('tr');
+      for (let i = 0; i < trs.length; i++) {
+        let tdId = trs[i].getElementsByTagName("td")[0];
+        let tdName = trs[i].getElementsByTagName("td")[1];
+        if (tdId || tdName) {
+          let txtValueId = tdId.textContent || tdId.innerText;
+          let txtValueName = tdName.textContent || tdName.innerText;
+          if (txtValueId.toUpperCase().indexOf(filter) > -1 || txtValueName.toUpperCase().indexOf(filter) > -1) {
+            trs[i].style.display = "";
+          } else {
+            trs[i].style.display = "none";
+          }
+        }       
+      }
+    }
+
+    // 교사 - 특정 학생 보고서 열람 (수정 불가)
+    function viewStudentReport(sid, sname) {
+      document.getElementById('teacherDashboard').classList.add('hidden');
+      document.getElementById('reportSection').classList.remove('hidden');
+      
+      document.getElementById('display_sid').innerText = sid;
+      document.getElementById('display_sname').innerText = sname;
+      
+      // 교사 전용 UI 세팅
+      document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
+      document.getElementById('printBtn').classList.remove('hidden');
+      document.getElementById('backToListBtn').classList.remove('hidden');
+      document.querySelectorAll('textarea').forEach(el => el.readOnly = true);
+
+      // 데이터 초기화 후 불러오기
+      document.getElementById('q1_preview').style.display = 'none';
+      document.getElementById('q3_preview').style.display = 'none';
+      document.getElementById('q1_text').value = '';
+      document.getElementById('q2_text').value = '';
+      document.getElementById('q3_text').value = '';
+      document.getElementById('q4_text').value = '';
+
+      google.script.run.withSuccessHandler(populateReport).getStudentData(sid, sname);
+    }
+  </script>
+</body>
+</html>
