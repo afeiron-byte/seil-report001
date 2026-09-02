@@ -16,7 +16,7 @@
       body, html { background: white !important; height: auto !important; }
       .no-print { display: none !important; }
       .card { box-shadow: none !important; border: none !important; padding: 0 !important; }
-      .tab-content { display: block !important; margin-bottom: 30px; } /* 인쇄시 모든 탭 표시 */
+      .tab-content { display: block !important; margin-bottom: 30px; }
       textarea { height: auto !important; border: 1px solid #ccc !important; }
     }
   </style>
@@ -48,7 +48,7 @@
 
 <!-- 학생 보고서 작성 화면 -->
 <div id="student-screen" class="hidden min-h-screen pt-6 pb-12">
-  <div class="max-w-5xl mx-auto bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden card">
+  <div class="max-w-5xl mx-auto bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden card relative pb-20">
     
     <!-- 헤더 -->
     <div class="flex justify-between items-center bg-blue-800 text-white p-6 no-print">
@@ -72,7 +72,6 @@
 
     <!-- 탭 콘텐츠 영역 -->
     <div class="p-8">
-      
       <!-- 탭 1 -->
       <div id="tab1" class="tab-content active">
         <h2 class="text-xl font-bold text-blue-900 mb-4 border-l-4 border-blue-600 pl-3">1. 놀이기구 설계 및 과학적 개념 적용</h2>
@@ -116,7 +115,6 @@
         </div>
         <textarea id="q4_text" class="w-full border border-gray-300 rounded-md p-4 min-h-[300px] outline-none focus:border-blue-500" placeholder="여기에 내용을 입력하세요..."></textarea>
       </div>
-
     </div>
   </div>
 </div>
@@ -149,7 +147,15 @@
   </div>
 </div>
 
+<!-- 우측 하단 세일고 로고 -->
+<div class="fixed bottom-5 right-6 flex items-center gap-2 z-40 no-print bg-white/90 px-4 py-2 rounded-full shadow-md backdrop-blur-sm border border-gray-200">
+  <img src="세일고CI-01.png" alt="세일고 로고" class="w-6 h-6 object-contain">
+  <span class="font-bold text-sm" style="color: #003366;">세일고등학교</span>
+</div>
+
 <script>
+  // 스프레드시트 배포 URL 연동
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwReN4AW46Ty54A19b0b1p53oP1_CE_Yd_OpSCiy_2attpvBCrp05qkJ151WZvNBZTU/exec";
   let currentUser = {};
 
   // 텍스트 영역 자동 확장
@@ -196,32 +202,29 @@
     document.getElementById('q3_preview').classList.remove('hidden');
   }));
 
-  // 로딩 UI 제어
-  function showLoading(show) {
-    document.getElementById('loading').style.display = show ? 'flex' : 'none';
-  }
+  function showLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
 
-  // 탭 전환 로직
   function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    
     document.getElementById(tabId).classList.add('active');
     event.currentTarget.classList.add('active');
-    
-    // 탭 전환 시 텍스트 영역 크기 재계산 (숨겨진 상태에서는 높이 계산이 안 되므로)
     setTimeout(triggerResize, 10);
   }
 
-  // 로그인 처리
-  function login() {
+  async function login() {
     const id = document.getElementById('login_id').value.trim();
     const pw = document.getElementById('login_pw').value.trim();
     if(!id || !pw) return alert("학번과 비밀번호를 입력하세요.");
 
     showLoading(true);
-    google.script.run.withSuccessHandler(res => {
-      showLoading(false);
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'login', id: id, pw: pw })
+      });
+      const res = await response.json();
+      
       if (res.success) {
         if (res.role === 'teacher') {
           document.getElementById('login-screen').classList.add('hidden');
@@ -234,20 +237,20 @@
           document.getElementById('login-screen').classList.add('hidden');
           document.getElementById('student-screen').classList.remove('hidden');
           
-          // 데이터 불러오기
-          showLoading(true);
-          google.script.run.withSuccessHandler(data => {
-            populateForm(data);
-            showLoading(false);
-          }).getStudentReport(res.studentId);
+          const reportRes = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'getStudentReport', studentId: res.studentId })
+          });
+          const reportData = await reportRes.json();
+          populateForm(reportData);
         }
       } else {
         alert(res.message);
       }
-    }).processLoginReq(id, pw);
+    } catch (e) { alert("통신 오류가 발생했습니다."); }
+    showLoading(false);
   }
 
-  // 화면에 폼 데이터 채우기
   function populateForm(data) {
     if(data) {
       if(data.q1Img) { document.getElementById('q1_preview').src = data.q1Img; document.getElementById('q1_preview').classList.remove('hidden'); }
@@ -260,8 +263,7 @@
     }
   }
 
-  // 보고서 저장
-  function saveData() {
+  async function saveData() {
     const data = {
       studentId: currentUser.studentId,
       name: currentUser.name,
@@ -274,19 +276,28 @@
     };
     
     document.getElementById('saveBtn').innerText = "저장 중...";
-    google.script.run.withSuccessHandler(res => {
-      alert(res);
-      document.getElementById('saveBtn').innerText = "저장하기";
-    }).saveStudentReport(data);
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'saveStudentReport', data: data })
+      });
+      const res = await response.json();
+      alert(res.message);
+    } catch (e) { alert("저장에 실패했습니다."); }
+    document.getElementById('saveBtn').innerText = "저장하기";
   }
 
-  // 교사 대시보드 로드
-  function showTeacherDashboard() {
+  async function showTeacherDashboard() {
     document.getElementById('student-screen').classList.add('hidden');
     document.getElementById('teacher-screen').classList.remove('hidden');
     
     showLoading(true);
-    google.script.run.withSuccessHandler(list => {
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getTeacherDashboardData' })
+      });
+      const list = await response.json();
       const tbody = document.getElementById('teacher-tbody');
       tbody.innerHTML = '';
       list.forEach(student => {
@@ -302,11 +313,10 @@
           </tr>
         `;
       });
-      showLoading(false);
-    }).getTeacherDashboardData();
+    } catch (e) { alert("데이터를 불러오지 못했습니다."); }
+    showLoading(false);
   }
 
-  // 교사 테이블 필터링
   function filterTable() {
     const filter = document.getElementById('search-input').value.toUpperCase();
     const trs = document.getElementById('teacher-tbody').getElementsByTagName('tr');
@@ -320,21 +330,18 @@
     }
   }
 
-  // 교사가 특정 학생 보고서 열람 (읽기 전용)
-  function viewStudentReport(sid, sname) {
+  async function viewStudentReport(sid, sname) {
     document.getElementById('teacher-screen').classList.add('hidden');
     document.getElementById('student-screen').classList.remove('hidden');
     
     document.getElementById('display_sid').innerText = sid;
     document.getElementById('display_sname').innerText = sname;
     
-    // 교사 모드 UI 설정 (저장버튼/파일첨부 숨김, 인쇄/목록 버튼 표시, 읽기전용)
     document.querySelectorAll('.student-only').forEach(el => el.classList.add('hidden'));
     document.getElementById('printBtn').classList.remove('hidden');
     document.getElementById('backBtn').classList.remove('hidden');
     document.querySelectorAll('textarea').forEach(el => el.readOnly = true);
 
-    // 필드 초기화
     document.getElementById('q1_preview').classList.add('hidden');
     document.getElementById('q3_preview').classList.add('hidden');
     document.getElementById('q1_preview').src = '';
@@ -344,13 +351,18 @@
     document.getElementById('q3_text').value = '';
     document.getElementById('q4_text').value = '';
     
-    switchTab('tab1'); // 첫 번째 탭으로 초기화
+    switchTab('tab1');
 
     showLoading(true);
-    google.script.run.withSuccessHandler(data => {
+    try {
+      const response = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'getStudentReport', studentId: sid })
+      });
+      const data = await response.json();
       populateForm(data);
-      showLoading(false);
-    }).getStudentReport(sid);
+    } catch(e) {}
+    showLoading(false);
   }
 </script>
 </body>
