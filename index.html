@@ -212,6 +212,16 @@
     setTimeout(triggerResize, 10);
   }
 
+  // 공통 Fetch 함수 (CORS 우회 헤더 추가)
+  async function fetchGAS(payload) {
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    return await response.json();
+  }
+
   async function login() {
     const id = document.getElementById('login_id').value.trim();
     const pw = document.getElementById('login_pw').value.trim();
@@ -219,11 +229,7 @@
 
     showLoading(true);
     try {
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'login', id: id, pw: pw })
-      });
-      const res = await response.json();
+      const res = await fetchGAS({ action: 'login', id: id, pw: pw });
       
       if (res.success) {
         if (res.role === 'teacher') {
@@ -237,22 +243,21 @@
           document.getElementById('login-screen').classList.add('hidden');
           document.getElementById('student-screen').classList.remove('hidden');
           
-          const reportRes = await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'getStudentReport', studentId: res.studentId })
-          });
-          const reportData = await reportRes.json();
+          const reportData = await fetchGAS({ action: 'getStudentReport', studentId: res.studentId });
           populateForm(reportData);
         }
       } else {
         alert(res.message);
       }
-    } catch (e) { alert("통신 오류가 발생했습니다."); }
+    } catch (e) { 
+      console.error(e);
+      alert("통신 오류가 발생했습니다. 구글 앱스 스크립트 배포 설정을 확인해주세요."); 
+    }
     showLoading(false);
   }
 
   function populateForm(data) {
-    if(data) {
+    if(data && !data.error) {
       if(data.q1Img) { document.getElementById('q1_preview').src = data.q1Img; document.getElementById('q1_preview').classList.remove('hidden'); }
       if(data.q3Img) { document.getElementById('q3_preview').src = data.q3Img; document.getElementById('q3_preview').classList.remove('hidden'); }
       document.getElementById('q1_text').value = data.q1Text || '';
@@ -277,11 +282,7 @@
     
     document.getElementById('saveBtn').innerText = "저장 중...";
     try {
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'saveStudentReport', data: data })
-      });
-      const res = await response.json();
+      const res = await fetchGAS({ action: 'saveStudentReport', data: data });
       alert(res.message);
     } catch (e) { alert("저장에 실패했습니다."); }
     document.getElementById('saveBtn').innerText = "저장하기";
@@ -293,11 +294,7 @@
     
     showLoading(true);
     try {
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'getTeacherDashboardData' })
-      });
-      const list = await response.json();
+      const list = await fetchGAS({ action: 'getTeacherDashboardData' });
       const tbody = document.getElementById('teacher-tbody');
       tbody.innerHTML = '';
       list.forEach(student => {
@@ -355,11 +352,7 @@
 
     showLoading(true);
     try {
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'getStudentReport', studentId: sid })
-      });
-      const data = await response.json();
+      const data = await fetchGAS({ action: 'getStudentReport', studentId: sid });
       populateForm(data);
     } catch(e) {}
     showLoading(false);
